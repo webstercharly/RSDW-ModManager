@@ -32,6 +32,6 @@ session, update `HANDOFF.md` with:
 - live Dragonwilds results, clearly separated from static validation;
 - unresolved risks or assumptions.
 
-Preserve `%LOCALAPPDATA%/RSDWLoadoutManager` user data. Keep this project PC-only.
+Preserve `%LOCALAPPDATA%/RSDWModManager` user data. Keep this project PC-only.
 Parse every changed Lua file and validate every changed JSON file. Never mark a
 gameplay checkbox complete until the user or logs confirm it inside Dragonwilds.

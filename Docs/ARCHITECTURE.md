@@ -86,10 +86,10 @@ Services that must survive a reload (for example a key poller) are started from
 ## Data ownership
 
 Installed files are read-only program assets. Mutable data belongs under
-`%LOCALAPPDATA%\RSDWLoadoutManager`:
+`%LOCALAPPDATA%\RSDWModManager`:
 
 ```text
-RSDWLoadoutManager/
+RSDWModManager/
 ├── settings.json          (shell)
 ├── <module documents>     (registered by modules, e.g. gear-swaps.json)
 ├── migration.json

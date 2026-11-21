@@ -35,7 +35,7 @@
 ## Persistence
 
 - Fresh install creates default documents without reading or writing another mod.
-- A module that registers a document gets its own file under `%LOCALAPPDATA%\RSDWLoadoutManager`.
+- A module that registers a document gets its own file under `%LOCALAPPDATA%\RSDWModManager`.
 - Interrupted writes retain the previous valid document.
 - Backups rotate without deleting the newest valid copy.
 - Unknown fields survive a read/write round trip.

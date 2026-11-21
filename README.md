@@ -19,17 +19,17 @@ another mod.
 
 1. Install [UE4SS](https://github.com/UE4SS/RE-UE4SS) for Dragonwilds.
 2. Copy this repository's contents into
-   `RSDragonwilds/Binaries/Win64/ue4ss/Mods/RSDWLoadoutManager/`
+   `RSDragonwilds/Binaries/Win64/ue4ss/Mods/RSDWModManager/`
    so that `Scripts/main.lua` sits directly inside that folder.
 3. Copy each module's folder (for example `Modules/HotSwap`) into
-   `RSDWLoadoutManager/Modules/`.
+   `RSDWModManager/Modules/`.
 4. Start the game. Open the manager with `Esc > MOD MANAGER` or `F7`.
 
 To add or remove a module later, copy or delete its folder and press
 **RELOAD MODS** in the manager. There is no index to edit.
 
 User data (settings, swaps, backups, logs) is stored in
-`%LOCALAPPDATA%\RSDWLoadoutManager\`, so updating or reinstalling the mod never
+`%LOCALAPPDATA%\RSDWModManager\`, so updating or reinstalling the mod never
 replaces it.
 
 ## Writing a module

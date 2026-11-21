@@ -31,7 +31,7 @@ function M.initialize()
     local local_app_data = os.getenv("LOCALAPPDATA")
     local user_root
     if local_app_data and local_app_data ~= "" then
-        user_root = join(local_app_data, "RSDWLoadoutManager")
+        user_root = join(local_app_data, "RSDWModManager")
     else
         user_root = join(mod_root, "UserData")
     end

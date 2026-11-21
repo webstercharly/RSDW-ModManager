@@ -5,11 +5,11 @@
 Paths are relative to the UE4SS `Mods` folder of the Dragonwilds install
 (`RSDragonwilds/Binaries/Win64/ue4ss/Mods`).
 
-- Project root (edit here): `RSDWLoadoutManager`
-- Installed modules: `RSDWLoadoutManager/Modules/<Name>` (separate repositories)
+- Project root (edit here): `RSDWModManager`
+- Installed modules: `RSDWModManager/Modules/<Name>` (separate repositories)
 - UE4SS runtime log: `ue4ss/UE4SS.log`
 - Dragonwilds runtime log: `%LOCALAPPDATA%/RSDragonwilds/Saved/Logs/RSDragonwilds.log`
-- Update-safe user data: `%LOCALAPPDATA%/RSDWLoadoutManager`
+- Update-safe user data: `%LOCALAPPDATA%/RSDWModManager`
 
 ## Source layout
 

@@ -7,7 +7,7 @@
 | Data | Location | Why |
 |---|---|---|
 | Per-character progress, looks, records | `%LOCALAPPDATA%\RSDragonwilds\Saved\<Mod>-<name>[-<guid8>].txt/json` | beside the game's saves, survives mod updates; **never inside the game's save** (Slayer, MapMarkers, CollectionLog, SkillPets, AurelianUI per world) |
-| Our own manager data | `%LOCALAPPDATA%\RSDWLoadoutManager` | update-safe |
+| Our own manager data | `%LOCALAPPDATA%\RSDWModManager` | update-safe |
 | Settings | `config.txt` in the mod folder | user-editable |
 | Generated reports and caches | the mod folder | diagnostics, saved class path |
 | Embedded art or data | Lua modules | hosts reject some file types |

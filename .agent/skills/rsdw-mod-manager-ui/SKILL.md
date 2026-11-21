@@ -1,11 +1,11 @@
 ---
 name: rsdw-mod-manager-ui
-description: "Build or revise manifest-driven UE4SS modules and shared UI in the standalone RSDWLoadoutManager for RuneScape: Dragonwilds. Use for its module menus, interaction design, safe reload behavior, persistence, or gameplay validation; do not apply to unrelated UE4SS mods."
+description: "Build or revise manifest-driven UE4SS modules and shared UI in the standalone RSDWModManager for RuneScape: Dragonwilds. Use for its module menus, interaction design, safe reload behavior, persistence, or gameplay validation; do not apply to unrelated UE4SS mods."
 ---
 
 # RSDW Mod Manager UI
 
-Work in the installed `RSDWLoadoutManager` mod while preserving standalone operation and user data under `%LOCALAPPDATA%\RSDWLoadoutManager`.
+Work in the installed `RSDWModManager` mod while preserving standalone operation and user data under `%LOCALAPPDATA%\RSDWModManager`.
 
 This project is permanently PC-only. Design and test for keyboard and mouse;
 do not propose or implement controller navigation unless the user explicitly

@@ -1,6 +1,6 @@
 ---
 name: rsdw-mod-development
-description: "Write or change any UE4SS Lua code that touches Dragonwilds game objects, UI, input, hooks, maps, items, saves or Mod Menu, in RSDWLoadoutManager or a new mod. Routes to the task-based guides in Docs/KnowledgeBase and enforces the crash rules, evidence gates and licence gate. Use before writing code that calls the game; not needed for edits that touch no game API."
+description: "Write or change any UE4SS Lua code that touches Dragonwilds game objects, UI, input, hooks, maps, items, saves or Mod Menu, in RSDWModManager or a new mod. Routes to the task-based guides in Docs/KnowledgeBase and enforces the crash rules, evidence gates and licence gate. Use before writing code that calls the game; not needed for edits that touch no game API."
 ---
 
 # RSDW Mod Development
@@ -56,7 +56,7 @@ If a task spans guides, read each. If no guide covers it, say so and treat the w
 9. Build UI once per world, then show, hide and rewrite. Never rebuild rows on open. Use a new unique name for every constructed object. Pool widgets and cap pools.
 10. Do not remove or destroy a game widget you replace; make it invisible or move it, and restore pooled widgets before dropping them.
 11. Tune game values vanilla-first: store the original once, derive from it, restore on disable, write nothing at defaults, read back after writing.
-12. Never write the game's save. User data goes under `%LOCALAPPDATA%` (ours: `%LOCALAPPDATA%\RSDWLoadoutManager`) with atomic writes.
+12. Never write the game's save. User data goes under `%LOCALAPPDATA%` (ours: `%LOCALAPPDATA%\RSDWModManager`) with atomic writes.
 13. Use `IsLocalController()` for "the local player", `HasAuthority()` for host. Do not use `IsPlayerControlled()`.
 14. Keep `cfg`, `config.txt`, `modmenu.json` and the live-keys list in step.
 15. Treat `pcall` as incapable of catching native crashes: prevent the call, do not rely on catching it.

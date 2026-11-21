@@ -17,7 +17,7 @@ if not ok_module then
 end
 
 local ok_start, started, detail = pcall(bootstrap.start, {
-    id = "RSDWLoadoutManager",
+    id = "RSDWModManager",
     name = "Mod Manager",
     version = "0.1.0-dev",
 })
