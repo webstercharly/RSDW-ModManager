@@ -1,0 +1,5 @@
+interface:
+  display_name: "RSDW Mod Manager UI"
+  short_description: "Build consistent Dragonwilds manager modules"
+  default_prompt: "Use $rsdw-mod-manager-ui to implement or refine a Mod Manager module consistently."
+

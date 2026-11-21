@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "id": "RSDWLoadoutManager",
+  "name": "Mod Manager",
+  "author": "webstercharly",
+  "version": "0.1.0-dev",
+  "description": "Standalone in-game mod manager that hosts drop-in modules.",
+  "settings": [
+    {
+      "key": "ShowInPauseMenu",
+      "type": "toggle",
+      "label": "Pause menu button",
+      "default": true,
+      "restart": true
+    },
+    {
+      "key": "MenuKey",
+      "type": "key",
+      "label": "Open key",
+      "default": "F7",
+      "tooltip": "Optional direct key. The pause-menu button remains the recommended entry point.",
+      "restart": true
+    },
+    {
+      "key": "Notifications",
+      "type": "toggle",
+      "label": "Status notifications",
+      "default": true
+    },
+    {
+      "key": "DispatchIntervalMs",
+      "type": "number",
+      "label": "Combat dispatch interval (ms)",
+      "default": 70,
+      "min": 50,
+      "max": 300,
+      "step": 10,
+      "tooltip": "Delay between changed equipment actions. Lower is faster but can be less reliable on remote servers."
+    },
+    {
+      "key": "VerifyTimeoutSeconds",
+      "type": "number",
+      "label": "Server verification timeout",
+      "default": 5,
+      "min": 2,
+      "max": 15,
+      "step": 1
+    },
+    {
+      "key": "DetailedLog",
+      "type": "toggle",
+      "label": "Detailed diagnostic log",
+      "default": false
+    }
+  ]
+}
+

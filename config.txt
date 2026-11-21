@@ -1,0 +1,10 @@
+# Mod Manager
+# This file is managed by Mod Menu when available and may also be edited by hand.
+
+ShowInPauseMenu=true
+MenuKey=F7
+Notifications=true
+DetailedLog=false
+DispatchIntervalMs=70
+VerifyTimeoutSeconds=5
+

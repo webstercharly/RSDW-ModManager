@@ -1,0 +1,10 @@
+# Installed modules are separate repositories; do not commit them here.
+Modules/*
+!Modules/README.md
+
+# Local tooling and logs
+node_modules/
+*.log
+*.tmp
+*.previous
+.claude/

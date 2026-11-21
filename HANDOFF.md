@@ -1,0 +1,49 @@
+# Cross-tool handoff
+
+## Baseline (Mod Manager 0.1.0-dev, drop-in module host)
+
+- Active objective: live validation of the module host with the two published
+  modules, Hot Swap (`RSDW-ModManager-HotSwap`) and Map (`RSDW-ModManager-Map`).
+  Nothing in `Docs/TEST_PLAN.md` is checked yet.
+- Exact next step: install the manager, copy `Modules/HotSwap` and `Modules/Map`
+  into `Modules/`, start the game, open the manager, and work through the
+  "Module host" section of `Docs/TEST_PLAN.md` and each module's own plan.
+  Record observed results in this file.
+
+### What the shell does
+
+- `rlm_modules.lua` scans `Modules/` for folders with a valid `manifest.json`
+  (fallback: optional `Modules/index.json`). Empty is valid.
+- Runtime contract: `activate` required; optional `run_action`, `select_row`,
+  `rename_selection`, `start(state)`, `stop()`, `shutdown()`. `start` runs after
+  the UI is ready and again after Reload Mods, so modules keep it idempotent.
+  `shutdown` runs only on manager unload.
+- `rlm_store.register(kind, spec)` lets a module own a document in user data.
+  The shell itself only owns `settings.json`.
+- Shared services: `rlm_engine`, `rlm_inventory`, `rlm_async`, `rlm_transaction`,
+  `rlm_store`, `rlm_log`, `rlm_ui`.
+
+### Static validation done
+
+- Every Lua file parses (luaparse, Lua 5.3 grammar) in the combined install
+  (shell plus both modules). Every `require("rlm_*")` target resolves, and every
+  texture the Map module names exists in its `art/` folder.
+- Mocked tests (fengari Lua with stubbed `io`): module scan and ordering,
+  invalid and unsafe folders skipped, empty `Modules/`, start/stop/shutdown
+  order, `store.register` across a simulated reload, and rejection of an unsafe
+  document file name.
+
+### Live results
+
+- None recorded. Static checks prove syntax and logic against stubs only.
+
+### Risks and assumptions
+
+- Module discovery uses `io.popen("dir /b /ad ...")`, the same mechanism the
+  backup rotation already uses. If it is unavailable the host falls back to
+  `Modules/index.json`, which the repository does not ship.
+- Hot Swap's key poller and swap service now start from the module's `start`
+  hook instead of the shell bootstrap. The order matches the old one (after the
+  UI) but has not been run in game.
+- A change to `rlm_ui.lua`, `rlm_modules.lua`, `rlm_bootstrap.lua` or `main.lua`
+  needs a normal game restart, not Reload Mods.
