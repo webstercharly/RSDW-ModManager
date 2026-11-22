@@ -14,6 +14,7 @@ another mod.
 |---|---|---|
 | Hot Swap | `RSDW-ModManager-HotSwap` | Colour-coded combat equipment swaps with configurable hotkeys. |
 | Map | `RSDW-ModManager-Map` | Native in-game minimap, OSRS-style HUD orbs, chest and lore markers, Nearby Destinations. |
+| MCP | `RSDW-ModManager-MCP` | Public read-only local diagnostics and loaded-world observation for MCP clients. |
 
 ## Install
 
@@ -67,7 +68,8 @@ access), `rlm_inventory` (equipment and inventory snapshots), `rlm_async`
 
 Parse Lua with `npx luaparse <file>`. See `AGENTS.md` for the agent workflow,
 `Docs/ARCHITECTURE.md` for the design, and `Docs/KnowledgeBase/` for UE4SS and
-Dragonwilds developer notes.
+Dragonwilds developer notes. `Docs/REPOSITORY_POLICY.md` defines which module
+capabilities are public and which remain private.
 
 ## Licence
 

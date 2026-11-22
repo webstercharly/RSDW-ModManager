@@ -15,6 +15,17 @@
 - Continuously scanning every UMG inventory widget.
 - Depending on, loading or writing another mod's files.
 
+## Repository visibility boundary
+
+The shell and generally useful non-cheat modules are public, independently
+installable repositories. The public MCP module is permanently read-only: it
+may observe loaded game state and bounded logs, but it exposes no game mutation,
+generic reflection, console or Lua execution.
+
+Any MCP capability that changes game state belongs in a private automation
+repository with its own module, server and mailbox namespace. Public modules do
+not import private automation, and the shell never gains action-specific code.
+
 ## Runtime boundaries
 
 ```text

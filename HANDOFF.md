@@ -1,5 +1,16 @@
 # Cross-tool handoff
 
+## Public/private repository boundary
+
+- `RSDW-ModManager-MCP` is the new public read-only diagnostics module. The
+  manager README lists it beside Hot Swap and Map.
+- Game-writing MCP capabilities belong in private `RSDW-ModManager-Automation`,
+  with a separate server/mailbox. The public MCP and shell do not load it.
+- `Docs/REPOSITORY_POLICY.md` records the same visibility rule for the remaining
+  module families, including mixed modules that need splitting.
+- Static documentation change only; installation and live module validation are
+  tracked in the MCP repository.
+
 ## Baseline (Mod Manager 0.1.0-dev, drop-in module host)
 
 - Active objective: live validation of the module host with the two published
