@@ -67,3 +67,7 @@
 - Client-only mod joining a remote server.
 - Host-owned server without a server-side installation.
 - Server rejection and correction are reported accurately.
+
+## Storage latency
+
+- [ ] After a restart, save settings and a module document repeatedly. Check that each has at most 12 numbered backups, earlier dated backups remain available, and slow saves report named phases.

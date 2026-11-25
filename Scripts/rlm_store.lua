@@ -8,6 +8,14 @@ local documents = {}
 local locations = nil
 local mod_version = "dev"
 local BACKUP_LIMIT = 12
+local next_backup_slots = {}
+
+local function mark_save(timing, phase)
+    if not timing then return end
+    local now = os.clock()
+    timing.phases[#timing.phases + 1] = ("%s %.0f ms"):format(phase, (now - timing.last) * 1000)
+    timing.last = now
+end
 
 local function utc_now()
     return os.date("!%Y-%m-%dT%H:%M:%SZ")
@@ -33,65 +41,21 @@ local function join(left, right)
     return tostring(left) .. "\\" .. tostring(right)
 end
 
-local function write_file(path, body)
-    local file, open_error = io.open(path, "wb")
-    if not file then return false, open_error end
-    local ok, write_error = pcall(function() file:write(body); file:flush() end)
-    file:close()
-    if not ok then return false, write_error end
-    return true
-end
-
-local function rotate_backups(kind)
-    if not locations or not locations.backups or not io.popen then return end
-    local safe_directory = tostring(locations.backups):gsub('"', '""')
-    local command = ('dir /b /a-d /o-d "%s\\%s-*.json" 2>nul'):format(safe_directory, kind)
-    local ok_open, pipe = pcall(io.popen, command)
-    if not ok_open or not pipe then return end
-    local files = {}
-    for name in pipe:lines() do
-        if name:match("^" .. kind:gsub("([^%w])", "%%%1") .. "%-.+%.json$") then
-            files[#files + 1] = name
-        end
-    end
-    pcall(function() pipe:close() end)
-    for index = BACKUP_LIMIT + 1, #files do
-        os.remove(join(locations.backups, files[index]))
-    end
-end
-
-local function backup_existing(kind, path)
-    if not locations or not locations.backups then return true end
-    local body = read_file(path)
-    if not body then return true end
-    local stamp = os.date("!%Y%m%d-%H%M%S")
-    local name = kind .. "-" .. stamp .. ".json"
-    local target = join(locations.backups, name)
-    local suffix = 2
-    while file_exists(target) do
-        name = kind .. "-" .. stamp .. "-" .. tostring(suffix) .. ".json"
-        target = join(locations.backups, name)
-        suffix = suffix + 1
-    end
-    local ok, backup_error = write_file(target, body)
-    if not ok then return false, backup_error end
-    rotate_backups(kind)
-    return true
-end
-
-local function write_atomic(path, body)
+local function write_atomic(path, body, timing)
     local temporary = path .. ".tmp"
     local previous = path .. ".previous"
     local file, open_error = io.open(temporary, "wb")
+    mark_save(timing, "open temporary file")
     if not file then return false, "could not open temporary file: " .. tostring(open_error) end
     local ok_write, write_error = pcall(function()
-        file:write(body)
-        file:flush()
+        assert(file:write(body))
+        assert(file:flush())
     end)
-    file:close()
-    if not ok_write then
+    local closed, close_error = file:close()
+    mark_save(timing, "write and close temporary file")
+    if not ok_write or not closed then
         os.remove(temporary)
-        return false, "temporary write failed: " .. tostring(write_error)
+        return false, "temporary write failed: " .. tostring(write_error or close_error)
     end
 
     if file_exists(path) then
@@ -102,12 +66,49 @@ local function write_atomic(path, body)
             return false, "could not preserve previous document: " .. tostring(move_error)
         end
     end
+    mark_save(timing, "rotate previous document")
 
     local installed, install_error = os.rename(temporary, path)
+    mark_save(timing, "install document")
     if not installed then
         if file_exists(previous) then os.rename(previous, path) end
         os.remove(temporary)
         return false, "could not install new document: " .. tostring(install_error)
+    end
+    return true
+end
+
+local function read_backup_slot(path)
+    local file = io.open(path, "rb")
+    if not file then return nil end
+    local index = tonumber(file:read(4))
+    file:close()
+    if index and index % 1 == 0 and index >= 1 and index <= BACKUP_LIMIT then return index end
+end
+
+local function backup_existing(kind, path, timing)
+    if not locations.backups then return true end
+    local body = read_file(path)
+    mark_save(timing, "read previous document")
+    if not body then return true end
+
+    -- Fixed slots avoid launching a shell on the game thread. Dated backups from
+    -- earlier releases stay available for manual recovery.
+    local cursor = join(locations.backups, kind .. "-rolling.next")
+    local index = next_backup_slots[kind] or read_backup_slot(cursor)
+        or read_backup_slot(cursor .. ".previous") or 1
+    local target = join(locations.backups, ("%s-rolling-%02d.json"):format(kind, index))
+    local ok, backup_error = write_atomic(target, body)
+    mark_save(timing, "write rolling backup")
+    if not ok then return false, backup_error end
+    os.remove(target .. ".previous")
+
+    local next_index = index % BACKUP_LIMIT + 1
+    next_backup_slots[kind] = next_index
+    local cursor_saved, cursor_error = write_atomic(cursor, tostring(next_index) .. "\n")
+    mark_save(timing, "advance backup slot")
+    if not cursor_saved then
+        log.warn("could not record next " .. kind .. " backup slot: " .. tostring(cursor_error))
     end
     return true
 end
@@ -213,14 +214,24 @@ function M.save(kind)
     local spec = specs[kind]
     local path = spec and spec.path
     if not path then return false, "document path is unavailable" end
+    local started = os.clock()
+    local timing = { last = started, phases = {} }
     document.schemaVersion = SCHEMA_VERSION
     document.modVersion = mod_version
     document.updatedUtc = utc_now()
-    local backed_up, backup_error = backup_existing(kind, path)
+    local backed_up, backup_error = backup_existing(kind, path, timing)
     if not backed_up then
         log.warn("could not create " .. kind .. " backup: " .. tostring(backup_error))
     end
-    return write_atomic(path, json.encode(document, true) .. "\n")
+    local encoded = json.encode(document, true) .. "\n"
+    mark_save(timing, "encode JSON")
+    local saved, save_error = write_atomic(path, encoded, timing)
+    local elapsed = (os.clock() - started) * 1000
+    if elapsed >= 50 then
+        log.info(("Store save %s: %.0f ms (%d bytes, %s): %s")
+            :format(kind, elapsed, #encoded, saved and "saved" or "failed", table.concat(timing.phases, ", ")))
+    end
+    return saved, save_error
 end
 
 function M.schema_version()

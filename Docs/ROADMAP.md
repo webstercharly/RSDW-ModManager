@@ -15,7 +15,7 @@
 - [x] Update-safe `%LOCALAPPDATA%` storage foundation.
 - [x] Atomic replacement with a recoverable previous document.
 - [x] Versioned settings schema and module-registered documents.
-- [x] Timestamped rolling backup rotation.
+- [x] Bounded rotating backups without a directory scan.
 
 ## Phase 2 — engine and inventory layer
 

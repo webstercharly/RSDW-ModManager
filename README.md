@@ -57,7 +57,8 @@ Lifecycle:
 - A module that needs saved data calls
   `require("rlm_store").register(kind, { file, base, validate })` and then uses
   `store.get(kind)` and `store.save(kind)`. Files are written atomically with
-  rolling backups under the user-data folder.
+  up to 12 numbered backups per document under the user-data folder. Updates
+preserve existing dated backups.
 
 Shared services available to modules: `rlm_engine` (guarded Dragonwilds object
 access), `rlm_inventory` (equipment and inventory snapshots), `rlm_async`

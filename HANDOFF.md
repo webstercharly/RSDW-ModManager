@@ -1,5 +1,16 @@
 # Cross-tool handoff
 
+## Bounded backups in 0.1.1-dev
+
+- The storage writer rotates 12 numbered backups per registered document.
+  It preserves earlier dated backups and uses the same atomic save path for
+  both shell and module-owned documents.
+- An integrated live capture spent 4.335 s in the old backup directory listing.
+  The public shell now avoids the shell process and records phases on slow
+  saves. Gameplay verification of this public layout is pending after restart.
+
+- Lua syntax and three storage regression tests passed, including a registered module document.
+
 ## Public/private repository boundary
 
 - `RSDW-ModManager-MCP` is the new public read-only diagnostics module. The
