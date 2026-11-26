@@ -19,7 +19,7 @@ end
 local ok_start, started, detail = pcall(bootstrap.start, {
     id = "RSDWModManager",
     name = "Mod Manager",
-    version = "0.1.1-dev",
+    version = "0.1.2-dev",
 })
 
 if not ok_start then

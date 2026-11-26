@@ -1,5 +1,13 @@
 # Cross-tool handoff
 
+## Graphite UI Kit integration in 0.1.2-dev
+
+- The public shell uses the shared kit for detail cards, hover effects,
+  pinned navigation and pagination. The gallery exercises the bundled
+  theme and illustration path. Drop-in modules own their services and
+  start through the public module lifecycle.
+- The public package still needs its installed-game test plan.
+
 ## Bounded backups in 0.1.1-dev
 
 - The storage writer rotates 12 numbered backups per registered document.

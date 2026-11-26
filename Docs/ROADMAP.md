@@ -1,5 +1,7 @@
 # Implementation roadmap
 
+- [x] Bundle the shared Graphite UI Kit, gallery, detail cards and fixed pagination controls.
+
 ## Phase 0 — standalone foundation
 
 - [x] Create a self-contained UE4SS mod.

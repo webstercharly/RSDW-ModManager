@@ -15,6 +15,11 @@ another mod.
 | Hot Swap | `RSDW-ModManager-HotSwap` | Colour-coded combat equipment swaps with configurable hotkeys. |
 | Map | `RSDW-ModManager-Map` | Native in-game minimap, OSRS-style HUD orbs, chest and lore markers, Nearby Destinations. |
 | MCP | `RSDW-ModManager-MCP` | Public read-only local diagnostics and loaded-world observation for MCP clients. |
+| Organiser | `RSDW-ModManager-Organiser` | Chest labels, organised storage and carried-item retention rules. |
+
+The manager bundles UI Gallery and the [shared UI Kit](https://github.com/webstercharly/RSDW-ModManager-UIKit).
+The Graphite theme is included in `Data/ui-theme.json`. Put a personal
+override in `%LOCALAPPDATA%\RSDWModManager\ui-theme.json` and apply it with **Reload Mods**.
 
 ## Install
 
@@ -39,10 +44,16 @@ A module is a folder under `Modules/` containing:
 
 - `manifest.json`: `schemaVersion` (1), `id`, `name`, `description`, `version`,
   `order`, `entry` (normally `module.lua`) and `ui.menuLabel` plus optional
-  `ui.actions` (`id`, `label`, `inputHint`, `requiresInput`, `destructive`).
+  `ui.actions` (`id`, `label`, `inputHint`, `requiresInput`, `destructive`,
+  `primary`, `disabled`).
 - `module.lua`: returns a table. `activate(state)` is required and returns
   `{ status, detail, rows }`. Optional: `run_action`, `select_row`,
   `rename_selection`, `start(state)`, `stop()`, `shutdown()`.
+- Views can add `preview` for a detail card, `actionIds` to choose visible
+  actions, and `poolRows` for reusable list rows. Set `pinFirstRow` for Back.
+  For lists with multiple pages, provide `pagination` with the one-based
+  `page`, total `pages`, and optional `previous` and `next` row values.
+  When `state.uiPagination` is true, the shell renders the controls in the footer.
 - Any services and assets the module needs, beside those two files. Add the
   module folder to `package.path` at the top of `module.lua` (see the Hot Swap
   module for the short pattern). Use an `rlm_` prefix on service names.

@@ -24,6 +24,8 @@
 
 ## Module host
 
+- [ ] In UI Gallery, check illustrated and text-only cards, the firefly orbit on short and long module labels, keyboard search, and disabled rows and actions. Change a personal theme override and check Reload Mods applies it.
+
 - [ ] With no modules installed the manager opens, says no modules are installed, and RELOAD MODS works.
 - [ ] Copy a module folder into `Modules/`, press RELOAD MODS, and it appears without editing any file.
 - [ ] Delete a module folder, press RELOAD MODS, and it disappears with no errors in `UE4SS.log`.

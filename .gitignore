@@ -1,9 +1,11 @@
-# Installed modules are separate repositories; do not commit them here.
+# Drop-in modules live in their own repositories. UI Gallery ships with the shell.
 Modules/*
 !Modules/README.md
+!Modules/UIGallery/
 
 # Local tooling and logs
 node_modules/
+__pycache__/
 *.log
 *.tmp
 *.previous
