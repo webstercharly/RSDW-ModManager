@@ -12,6 +12,10 @@ another's global configuration.
 Read the skill completely before changing module UI, module behavior,
 persistence, reload handling or gameplay integration.
 
+Use `skills/rsdw-ui-kit/SKILL.md` for shared components, theme tokens, nested
+module views and visual reviews. Keep reusable presentation in the public UI
+Kit and vendor the matching files into this shell.
+
 ## Required for any code that touches UE4SS or game objects
 
 - `skills/rsdw-mod-development/SKILL.md` — load protocol, task routing into

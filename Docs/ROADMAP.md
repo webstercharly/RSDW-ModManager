@@ -1,6 +1,10 @@
 # Implementation roadmap
 
 - [x] Bundle the shared Graphite UI Kit, gallery, detail cards and fixed pagination controls.
+- [x] Add compact primary/secondary actions, destination rows, inline detail
+  actions and deterministic footer placement for nested module flows.
+- [x] Reload the shell view and shared UI Kit in process, debounce duplicate
+  reload requests and expose an idempotent post-reload module callback.
 
 ## Phase 0 — standalone foundation
 

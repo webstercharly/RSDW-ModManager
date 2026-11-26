@@ -42,10 +42,11 @@ Inspect each manifest rather than hardcoding menu labels.
 
 - A change to a module runtime or manifest can normally use the in-menu
   **Reload Mods** action.
-- A change to the persistent host shell/bootstrap, especially `rlm_ui.lua`,
-  `rlm_modules.lua`, `rlm_bootstrap.lua` or `main.lua`, requires a normal
-  Dragonwilds restart.
-- Never call `RestartCurrentMod` from a callback or tick.
+- **Reload Mods** refreshes module runtimes, the shared UI Kit and `rlm_ui.lua`
+  in process once this host version is running.
+- Changes to `rlm_modules.lua`, `rlm_bootstrap.lua` or `main.lua` require a
+  normal Dragonwilds restart. Never call `RestartCurrentMod` from a callback
+  or tick.
 
 ## Validation commands
 

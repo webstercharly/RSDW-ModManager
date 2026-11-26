@@ -50,7 +50,11 @@ A module is a folder under `Modules/` containing:
   `{ status, detail, rows }`. Optional: `run_action`, `select_row`,
   `rename_selection`, `start(state)`, `stop()`, `shutdown()`.
 - Views can add `preview` for a detail card, `actionIds` to choose visible
-  actions, and `poolRows` for reusable list rows. Set `pinFirstRow` for Back.
+  actions, `actionLabels` to rename an action in the current subview, and
+  `poolRows` for reusable list rows. Set `inlineActions = true` to place
+  input-free actions below the detail card. Rows can set `action = true` or
+  `destination = true` for the shared framed command/link treatment. Set
+  `pinFirstRow` for Back.
   For lists with multiple pages, provide `pagination` with the one-based
   `page`, total `pages`, and optional `previous` and `next` row values.
   When `state.uiPagination` is true, the shell renders the controls in the footer.
@@ -65,6 +69,9 @@ Lifecycle:
 - `stop()` runs when a reload replaces the module and when the manager unloads.
 - `shutdown()` runs only when the manager unloads. Put work that must survive a
   reload (key pollers, schedulers) behind `start` and clean it up here.
+- `on_host_reload(state)` runs after a successful in-process host/module reload.
+  Use it only to reconnect an independently owned HUD or service; it must be
+  idempotent.
 - A module that needs saved data calls
   `require("rlm_store").register(kind, { file, base, validate })` and then uses
   `store.get(kind)` and `store.save(kind)`. Files are written atomically with

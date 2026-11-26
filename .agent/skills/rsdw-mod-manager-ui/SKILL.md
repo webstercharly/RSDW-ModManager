@@ -16,6 +16,7 @@ changes that product scope.
 - Read the target module manifest/runtime, `Scripts/rlm_ui.lua`, and the relevant portions of `README.md`, `Docs/ROADMAP.md`, and `Docs/TEST_PLAN.md` before changing behavior.
 - Put reusable layout, navigation, notification, and input behavior in `rlm_ui.lua` once. Do not reproduce shared widgets inside individual modules.
 - Keep module names, descriptions, ordering, and actions in each manifest. The shell must discover them rather than hardcoding module-specific controls.
+- For a subview with different controls, return `actionIds` from `activate` to choose manifest actions. Use `actionLabels` keyed by action ID for labels that change with the current view. A view can set `inlineActions = true` to place input-free actions below its detail card and above its list. Check `state.uiInlineActions` when supporting an older shell.
 - Keep domain operations in the module or its service files. A module runtime should expose only the view and actions the shell needs.
 
 ## Follow the established interaction design
@@ -36,7 +37,9 @@ changes that product scope.
 ## Preserve reload and gameplay safety
 
 - Never invoke `RestartCurrentMod` from this mod's callback or tick. Refresh manifests/module runtimes through the in-process module loader and rebuild only the panel.
-- A change to the persistent host shell requires one normal Dragonwilds restart. Module runtime, manifest, and regional-data changes may use the safe Reload Mods path.
+- Once this shell version is running, **Reload Mods** can replace the shell view,
+  shared UI Kit and module runtimes in process. Changes to `main.lua`,
+  `rlm_bootstrap.lua` or `rlm_modules.lua` still require a normal restart.
 - Keep module-specific behaviour in the module's own repository. The shell exposes the module contract in `README.md` (`activate`, `run_action`, `select_row`, `start`, `stop`, `shutdown`, `store.register`) and nothing else.
 - `start` must be idempotent: it runs after the shell is ready and again after every Reload Mods. Work that must survive a reload belongs in a cached service started from `start` and stopped from `shutdown`.
 - Preserve existing documents and unknown fields. Do not migrate, delete, or overwrite user presets unless the requested feature requires it.

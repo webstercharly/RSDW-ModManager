@@ -32,6 +32,8 @@
 - [ ] A folder with an invalid manifest is skipped and logged; other modules still load.
 - [ ] Modules appear in manifest `order`.
 - [ ] Reload Mods with a module that has background work leaves exactly one running copy of that work.
+- [ ] Reload Mods twice quickly runs one reload, leaves exactly one manager
+  panel and reconnects each module's `on_host_reload` callback at most once.
 - [ ] Closing the game or unloading the mod runs each module's shutdown and logs no errors.
 
 ## Persistence
@@ -62,7 +64,8 @@
 - Long names wrap visibly without clipping later detail lines.
 - Esc closes the manager while normal content or the text field has focus.
 - Reload Mods refreshes manifests and module runtimes without invoking
-  `RestartCurrentMod`, retains one panel, and allows continued play.
+  `RestartCurrentMod`, refreshes the shell/UI Kit, retains one panel, and
+  allows continued play.
 
 ## Multiplayer
 

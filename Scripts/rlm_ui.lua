@@ -18,6 +18,8 @@ local TEXT_CLASS = "/Game/UI/Common/WBP_DomTextBlock"
 
 local state = nil
 local started = false
+local main_loop_handle = nil
+local fast_loop_handle = nil
 local cached_pc, next_pc_scan = nil, 0
 local pause_seen, pause_known, pause_look_at = {}, nil, 0
 local click_hooked = false
@@ -55,6 +57,8 @@ local panel = {
     action_buttons = {},
     rows_box = nil,
     rows_scroll = nil,
+    action_scroll = nil,
+    action_row_boxes = nil,
     action_sizer = nil,
     tree = nil,
     active_module = nil,
@@ -294,6 +298,13 @@ local function set_visible(widget, visible)
     if valid(widget) then pcall(function() widget:SetVisibility(visible and 0 or 1) end) end
 end
 
+local function set_detail(text)
+    if not valid(panel.detail) then return end
+    text = tostring(text or "")
+    pcall(function() panel.detail:SetText(FText(text)) end)
+    set_visible(panel.detail, text ~= "")
+end
+
 local function hex_color(value, fallback)
     local hex = tostring(value or ""):match("^#?(%x%x%x%x%x%x)$")
     if not hex then return fallback end
@@ -393,6 +404,7 @@ local function build_panel(controller)
     local module_scroll = construct(tree, "ScrollBox")
     local module_list = construct(tree, "VerticalBox")
     if not module_scroll or not module_list then return nil, "module ScrollBox unavailable" end
+    pcall(function() module_scroll:SetClipping(1) end)
     module_scroll:AddChild(module_list)
     panel.hovered_module = nil
     local rendering_ok, rendering = pcall(StaticFindObject, "/Script/Engine.Default__KismetRenderingLibrary")
@@ -450,12 +462,14 @@ local function build_panel(controller)
             local entry
             if back then
                 entry = make_panel_button(controller, "", menu.button, tree,
-                    { color = grey, size = theme.typography.caption })
+                    { color = cream, size = theme.typography.control, accent = "inset",
+                      fireflies = firefly_texture, hoverable = true })
             else
                 entry = kit.make_icon_button(controller, refresh_texture, menu.button, tree)
             end
             if not entry then break end
-            local width = not entry.icon_widget and math.min(back and 240 or 176, max_button_width) or nil
+            local width = not back and not entry.icon_widget and math.min(176, max_button_width) or nil
+            entry.max_width = max_button_width
             entry.holder = sized(tree, entry.widget, width, theme.spacing.row)
             local slot = navigation_row:AddChildToHorizontalBox(entry.holder)
             pad(slot, 0, 0, 8, 4)
@@ -464,8 +478,8 @@ local function build_panel(controller)
                     slot:SetSize({ Value = 1, SizeRule = 1 })
                     slot:SetHorizontalAlignment(3)
                 end)
-                show_button_accent(entry, true)
             end
+            show_button_accent(entry, true)
             set_visible(entry.holder, false)
             panel.pinned_rows[index] = entry
         end
@@ -475,9 +489,8 @@ local function build_panel(controller)
     local status = new_text(tree, text_class, status_text, 16, cream)
     pcall(function() status:SetAutoWrapText(true) end)
     local status_sizer = sized(tree, status, content_width - 8, 34)
-    content:AddChildToVerticalBox(status_sizer)
+    pad(content:AddChildToVerticalBox(status_sizer), 0, 0, 0, 3)
     panel.status_sizer = status_sizer
-    add_spacer(tree, content, 3)
 
     local detail = new_text(tree, text_class, "Module details will appear here.", 13, grey)
     pcall(function() detail:SetAutoWrapText(true) end)
@@ -485,18 +498,20 @@ local function build_panel(controller)
     -- Wrapped module details must use their desired height. A fixed SizeBox
     -- clipped long item names after the second line; the fill-height entry
     -- list below can safely yield space while keeping controls bottom-aligned.
-    content:AddChildToVerticalBox(detail)
-    add_spacer(tree, content, 6)
+    pad(content:AddChildToVerticalBox(detail), 0, 0, 0, 6)
 
     local rows_scroll = construct(tree, "ScrollBox")
     local preview_box = construct(tree, "VerticalBox")
     local rows_box = construct(tree, "VerticalBox")
     local compact_box = construct(tree, "VerticalBox")
     if not rows_scroll or not rows_box or not compact_box then return nil, "content ScrollBox unavailable" end
+    pcall(function() rows_scroll:SetClipping(1) end)
     if preview_box then
         rows_scroll:AddChild(preview_box)
         pcall(function() preview_box:SetVisibility(1) end)
     end
+    panel.inline_actions = construct(tree, "VerticalBox")
+    if valid(panel.inline_actions) then rows_scroll:AddChild(panel.inline_actions) end
     rows_scroll:AddChild(rows_box)
     rows_scroll:AddChild(compact_box)
     local rows_wrapper = sized(tree, rows_scroll, content_width - 8, nil)
@@ -529,6 +544,7 @@ local function build_panel(controller)
     kit.apply_surface(footer, "dock")
     panel.footer = sized(tree, surface_with_shadow(tree, footer, "dock"), content_width - 8, nil)
     content:AddChildToVerticalBox(panel.footer)
+    panel.footer_home, panel.footer_parent = content, content
 
     local initial_module = state.modules and state.modules[1] or nil
     local initial_actions = initial_module and initial_module.manifest.ui.actions or {}
@@ -549,28 +565,40 @@ local function build_panel(controller)
     for _, module in ipairs(state.modules or {}) do
         action_capacity = math.max(action_capacity, #(module.manifest.ui.actions or {}))
     end
-    local action_grid = construct(tree, "UniformGridPanel")
     local action_scroll = construct(tree, "ScrollBox")
-    if not action_grid or not action_scroll then return nil, "action panel unavailable" end
-    action_scroll:AddChild(action_grid)
+    if not action_scroll then return nil, "action panel unavailable" end
+    pcall(function() action_scroll:SetClipping(1) end)
     local action_sizer = sized(tree, action_scroll, footer_inner, (theme.spacing.row + 4) * 3)
+    pcall(function() action_sizer:SetClipping(1) end)
     footer_box:AddChildToVerticalBox(action_sizer)
+    panel.action_scroll = action_scroll
     panel.action_sizer = action_sizer
-    for index = 1, action_capacity do
-        local action = initial_actions[index]
-        local entry = make_panel_button(controller,
-            action and action.label or "MODULE ACTION", menu.button, tree,
-            { size = theme.typography.control - 1, center = true, color = cream, accent = "primary" })
-        if entry then
-            local row = math.floor((index - 1) / 2)
-            local column = (index - 1) % 2
-            local button_width = math.floor((footer_inner - 10) / 2)
-            local wrapper = sized(tree, entry.widget, button_width, theme.spacing.row)
-            entry.holder = wrapper
-            local slot = action_grid:AddChildToUniformGrid(wrapper, row, column)
-            pad(slot, column == 0 and 0 or 4, 0, column == 0 and 4 or 0, 4)
-            menu.action_names[full_name(entry.button)] = index
-            panel.action_buttons[index] = entry
+    panel.action_row_boxes = {}
+    local row_count = math.ceil(action_capacity / 2)
+    local button_width = math.floor((footer_inner - 10) / 2)
+    for row_index = 1, row_count do
+        local pair = construct(tree, "HorizontalBox")
+        if pair then
+            pcall(function() pair:SetClipping(1) end)
+            action_scroll:AddChild(pair)
+            panel.action_row_boxes[row_index] = pair
+            for column = 0, 1 do
+                local index = (row_index - 1) * 2 + column + 1
+                if index <= action_capacity then
+                    local action = initial_actions[index]
+                    local entry = make_panel_button(controller,
+                        action and action.label or "MODULE ACTION", menu.button, tree,
+                        { size = theme.typography.control - 1, center = true, color = cream, accent = "primary" })
+                    if entry then
+                        local wrapper = sized(tree, entry.widget, button_width, theme.spacing.row)
+                        entry.holder = wrapper
+                        local slot = pair:AddChildToHorizontalBox(wrapper)
+                        pad(slot, column == 0 and 0 or 4, 0, column == 0 and 4 or 0, 4)
+                        menu.action_names[full_name(entry.button)] = index
+                        panel.action_buttons[index] = entry
+                    end
+                end
+            end
         end
     end
 
@@ -665,15 +693,15 @@ local function render_pooled_rows(rows)
             local selected = not heading and enabled and (row.selected == true or value == panel.selected_row)
             kit.set_button_enabled(entry, enabled)
             update_panel_button(entry, title, selected)
-            local destination = not heading and enabled and row.destination == true
+            local framed = not heading and enabled and (row.destination == true or row.action == true)
             if valid(entry.accent) then
-                local surface = destination and not selected and "inset" or "selected"
+                local surface = framed and not selected and "inset" or "selected"
                 if entry.accent_surface ~= surface then
                     kit.apply_surface(entry.accent, surface)
                     entry.accent_surface = surface
                 end
             end
-            show_button_accent(entry, selected or destination)
+            show_button_accent(entry, selected or framed)
             local name = not heading and enabled and full_name(button)
             if name then
                 menu.row_names[name] = { value = value, title = title,
@@ -698,14 +726,22 @@ local function render_rows(rows, pool_rows, pin_count)
             name = full_name(entry.button)
         end
         set_visible(entry.holder, name ~= nil)
+        local value = name and row.value or nil
         if entry.icon_widget then
-            local value = name and row.value
             if entry.bound_value ~= value then kit.animate_icon_button(entry, false) end
+            entry.bound_value = value
+        else
+            if entry.bound_value ~= value then kit.animate_button_hover(entry, false) end
             entry.bound_value = value
         end
         if name then
             local title = tostring(row.title or row.value)
+            kit.set_button_enabled(entry, true)
             update_panel_button(entry, title, false)
+            if not entry.icon_widget and entry.max_width and valid(entry.holder) then
+                local fit_width = math.max(148, math.min(entry.max_width, math.ceil(#title * 9.5) + 48))
+                pcall(function() entry.holder:SetWidthOverride(fit_width) end)
+            end
             menu.row_names[name] = { value = tostring(row.value), title = title, entry = entry,
                 input = tostring(row.inputValue or title), detail = row.detail }
             pinned = index
@@ -729,14 +765,15 @@ local function render_rows(rows, pool_rows, pin_count)
     local compact = #rows > 12 or (rows[1] and rows[1].compact == true)
     local tile_index, heading_index = 0, 0
     for _, row in ipairs(rows) do
-        if row.heading then
+        local framed = row.destination == true or row.action == true
+        if row.heading or row.disabled == true then
             heading_index = heading_index + 1
             local heading = panel.preview_headings[heading_index]
             if not heading then
                 heading = new_text(panel.tree, text_class, "", 17, gold)
                 panel.preview_headings[heading_index] = heading
             end
-            pcall(function() heading:SetText(FText(tostring(row.heading))) end)
+            pcall(function() heading:SetText(FText(tostring(row.heading or row.title or ""))) end)
             pcall(function()
                 heading:SetColorAndOpacity({ SpecifiedColor = hex_color(row.color, SHELL_MUTED), ColorUseRule = 0 })
             end)
@@ -746,8 +783,9 @@ local function render_rows(rows, pool_rows, pin_count)
             preview_tile_row(tile_index, row.tiles, text_class, grey, gold)
         elseif compact and row.value ~= nil then
             local entry = make_panel_button(panel.pc, tostring(row.title or "Untitled"), menu.button,
-                panel.tree, { size = 14, color = hex_color(row.color, SHELL_CREAM) })
+                panel.tree, { size = 14, color = hex_color(row.color, SHELL_CREAM), accent = framed and "inset" or nil })
             if entry then
+                show_button_accent(entry, framed)
                 panel.rows_box:AddChildToVerticalBox(sized(panel.tree, entry.widget,
                     (panel.content_width or 760) - 32, 38))
                 add_spacer(panel.tree, panel.rows_box, 4)
@@ -764,8 +802,9 @@ local function render_rows(rows, pool_rows, pin_count)
         if card then
             if row.value ~= nil then
                 local entry = make_panel_button(panel.pc, tostring(row.title or "Untitled"), menu.button,
-                    panel.tree, { size = 14, color = hex_color(row.color, SHELL_CREAM) })
+                    panel.tree, { size = 14, color = hex_color(row.color, SHELL_CREAM), accent = framed and "inset" or nil })
                 if entry then
+                    show_button_accent(entry, framed)
                     card:AddChildToVerticalBox(sized(panel.tree, entry.widget,
                         (panel.content_width or 760) - 32, 38))
                     local value, title = tostring(row.value), tostring(row.title or "Untitled")
@@ -1010,6 +1049,7 @@ local function close_panel(wait_for_escape)
     if valid(panel.frame) then pcall(function() panel.frame:SetVisibility(1) end) end
     kit.animate_fireflies(panel.hovered_module, false)
     panel.hovered_module = nil
+    kit.animate_button_hover(panel.pinned_rows and panel.pinned_rows[1], false)
     kit.animate_icon_button(panel.pinned_rows and panel.pinned_rows[2], false)
     panel.open = false
     enter_enabled, enter_requested = false, false
@@ -1030,6 +1070,25 @@ local function find_module(id)
     return nil
 end
 
+local function place_action_dock(inline)
+    local parent = inline and panel.inline_actions or panel.footer_home
+    if not valid(parent) or not valid(panel.footer) then return false end
+    if parent ~= panel.footer_parent then
+        -- Adding a UMG child moves it from its previous parent. Keep the
+        -- existing action widgets and their click bindings when switching views.
+        local ok, slot = pcall(function() return parent:AddChildToVerticalBox(panel.footer) end)
+        if not ok or not valid(slot) then
+            panel.footer_parent = nil
+            log.warn("Could not place the module action dock.")
+            if inline then return place_action_dock(false) end
+            return false
+        end
+        if inline then pad(slot, 0, 0, 6, 8) end
+        panel.footer_parent = parent
+    end
+    return inline
+end
+
 local function activate_module(id)
     local module = find_module(id) or (state.modules and state.modules[1])
     if not module then return false end
@@ -1041,11 +1100,13 @@ local function activate_module(id)
     panel.active_module = module.id
 
     state.uiPagination = panel.pagination ~= nil
+    state.uiInlineActions = valid(panel.inline_actions)
     local ok, view = pcall(module.runtime.activate, state)
     if not ok or type(view) ~= "table" then
         view = {
             status = module.manifest.name .. " is unavailable.",
             detail = tostring(ok and "invalid module response" or view),
+            actionIds = {},
         }
     end
     local status_text = tostring(view.status or "")
@@ -1054,7 +1115,7 @@ local function activate_module(id)
     local preview_ok, shown = pcall(render_item_preview, view.preview)
     if not preview_ok then log.warn("item preview unavailable: " .. tostring(shown)) end
     local detail = preview_ok and shown and "" or tostring(view.detail or module.manifest.description or "")
-    pcall(function() panel.detail:SetText(FText(detail)) end)
+    set_detail(detail)
     render_rows(view.rows, view.poolRows == true, tonumber(view.pinRows) or (view.pinFirstRow and 1 or 0))
     render_pagination(view.pagination)
     panel.icon_pending = panel.preview_icon ~= nil or panel.ingredient_icons ~= nil or (panel.icon_row_count or 0) > 0
@@ -1099,6 +1160,7 @@ local function activate_module(id)
     enter_enabled, enter_requested = panel.open and needs_input, false
     set_visible(panel.input_sizer or panel.name_input, needs_input)
     set_visible(panel.input_gap, needs_input)
+    place_action_dock(view.inlineActions == true and not needs_input and #actions > 0)
     set_visible(panel.footer, needs_input or #actions > 0)
     if needs_input then
         pcall(function() panel.name_input:SetHintText(FText(tostring(first_hint or "Value"))) end)
@@ -1114,11 +1176,19 @@ local function activate_module(id)
         local available = has_runner and type(action) == "table"
         set_visible(entry.holder or entry.widget, available)
         local enabled = available and action.disabled ~= true
-        kit.set_button_enabled(entry, enabled)
-        show_button_accent(entry, enabled and action.primary == true)
         if available then
-            update_panel_button(entry, tostring(action.label or "RUN"), false)
+            kit.style_action(entry, enabled, action.primary == true)
+            local label = type(view.actionLabels) == "table" and view.actionLabels[action.id]
+            update_panel_button(entry, tostring(label or action.label or "RUN"), false)
         end
+    end
+    for row_index, pair in ipairs(panel.action_row_boxes or {}) do
+        local first_idx = (row_index - 1) * 2 + 1
+        local row_visible = has_runner and (type(actions[first_idx]) == "table" or type(actions[first_idx + 1]) == "table")
+        set_visible(pair, row_visible)
+    end
+    if valid(panel.action_scroll) then
+        pcall(function() panel.action_scroll:ScrollToStart() end)
     end
     return true
 end
@@ -1192,7 +1262,7 @@ local function begin_key_capture(module, action, options)
     local controller = local_controller()
     local library = widget_library()
     if not valid(controller) or not library or not set_input_mask(controller, true) then
-        panel.detail:SetText(FText("Key capture unavailable. Type a shortcut such as SHIFT+F1."))
+        set_detail("Key capture unavailable. Type a shortcut such as SHIFT+F1.")
         return
     end
     -- UI-only mode does not send presses to PlayerController. Capture with
@@ -1204,7 +1274,7 @@ local function begin_key_capture(module, action, options)
     if not input_ok then
         set_input_mask(controller, false)
         set_ui_input(controller, panel.frame, true)
-        panel.detail:SetText(FText("Key capture unavailable. Type a shortcut such as SHIFT+F1."))
+        set_detail("Key capture unavailable. Type a shortcut such as SHIFT+F1.")
         return
     end
     key_capture.active = true
@@ -1218,10 +1288,7 @@ local function begin_key_capture(module, action, options)
             key_capture.down[key.canonical] = input_key_down(controller, key.unreal)
         end
     end
-    if valid(panel.detail) then
-        pcall(function() panel.detail:SetText(FText(
-            "Press a shortcut within 3 seconds. Esc closes the menu.")) end)
-    end
+    set_detail("Press a shortcut within 3 seconds. Esc closes the menu.")
 end
 
 local function run_module_action(action_index)
@@ -1236,12 +1303,13 @@ local function run_module_action(action_index)
     if not call_ok then ok, message, options = false, ok, nil end
     if ok then
         -- Actions which do not change their list can retain the exact current
-        -- row widgets, highlight and scroll offset for repeat actions.
+        -- row widgets, highlight and scroll offset. This is useful for repeat
+        -- actions such as spawning more of the selected item.
         if not (type(options) == "table" and options.preserveView == true) then
             activate_module(module.id)
         end
         if type(message) == "string" and message ~= "" then
-            pcall(function() panel.detail:SetText(FText(message)) end)
+            set_detail(message)
             log.info(message)
         end
         if type(options) == "table" and type(options.captureHotkey) == "table" then
@@ -1251,7 +1319,7 @@ local function run_module_action(action_index)
             pcall(function() panel.name_input:SetText(FText("")) end)
         end
     else
-        pcall(function() panel.detail:SetText(FText("Action stopped: " .. tostring(message))) end)
+        set_detail("Action stopped: " .. tostring(message))
         log.warn(module.id .. " action stopped: " .. tostring(message))
     end
 end
@@ -1269,25 +1337,35 @@ local function rename_selected_row()
         panel.selected_row = nil
         activate_module(module.id)
         pcall(function() panel.name_input:SetText(FText("")) end)
-        pcall(function() panel.detail:SetText(FText(tostring(message))) end)
+        set_detail(message)
         log.info(message)
     else
-        pcall(function() panel.detail:SetText(FText("Rename stopped: " .. tostring(message))) end)
+        set_detail("Rename stopped: " .. tostring(message))
         log.warn("rename stopped: " .. tostring(message))
     end
 end
 
 local function reload_mods()
+    local now = os.clock()
+    local prev_at = rawget(_G, "__RLM_UI_LAST_RELOAD_AT") or -999
+    if (now - prev_at) < 1.0 then
+        return state and state.modules or nil, "Reload already ran."
+    end
+    _G.__RLM_UI_LAST_RELOAD_AT = now
+
     local was_open = panel.open == true
+    local previous_module = panel.active_module
+    local saved_state = state
     end_key_capture(panel.pc)
-    log.info("refreshing manifests and module runtimes in process")
+    log.info("refreshing manifests, UI scripts and module runtimes in process")
 
-    -- Keep the UE4SS host, hooks, schedulers and key loops alive. Restarting
-    -- the current mod from its own UI tick can invalidate the executing Lua
-    -- callback and crash the game even when UE4SS reports a successful reload.
-    -- Drop-in modules own their service lifecycle.
+    for _, name in ipairs({
+        "rlm_glass", "rlm_ui_kit", "rlm_ui_theme", "rlm_row_icons",
+    }) do
+        package.loaded[name] = nil
+    end
 
-    local ok, module_list, reload_error = pcall(modules.reload, state.paths)
+    local ok, module_list, reload_error = pcall(modules.reload, saved_state.paths)
     if not ok then module_list, reload_error = nil, module_list end
     if not module_list then
         local message = "Module refresh stopped: " .. tostring(reload_error or "unknown error")
@@ -1295,38 +1373,43 @@ local function reload_mods()
         log.warn(message)
         return nil, message
     end
-    state.modules = module_list
-    local themed, theme_error = refresh_theme(state.paths)
-    if not themed then log.warn("UI theme kept: " .. tostring(theme_error)) end
-    modules.start_all(state)
+    saved_state.modules = module_list
 
-    local previous_module = panel.active_module
-    local controller = panel.pc
-    if panel.open then set_ui_input(controller, nil, false) end
-    if valid(panel.frame) then pcall(function() panel.frame:RemoveFromParent() end) end
-    panel.open = false
-    enter_enabled, enter_requested = false, false
-    row_icons.cancel_scan()
-    panel.frame, panel.pc, panel.status, panel.detail = nil, nil, nil, nil
-    panel.status_sizer, panel.notification, panel.notification_until = nil, nil, 0
-    panel.module_buttons, panel.action_buttons = {}, {}
-    panel.name_input, panel.rows_box, panel.rows_scroll, panel.compact_box = nil, nil, nil, nil
-    panel.pinned_rows = nil
-    panel.pagination, panel.hovered_module = nil, nil
-    panel.footer, panel.content_width, panel.input_sizer, panel.input_gap = nil, nil, nil, nil
-    panel.action_sizer, panel.tree = nil, nil
-    panel.preview_tiles, panel.preview_headings, panel.compact_rows = nil, nil, nil
-    panel.preview_box, panel.item_preview, panel.preview_icon, panel.ingredient_icons = nil, nil, nil, nil
-    panel.active_actions, panel.needs_input = nil, nil
-    panel.active_module, panel.selected_row, panel.broken = previous_module, nil, false
-    menu.close_name, menu.reload_name = nil, nil
-    menu.action_names, menu.module_names, menu.row_names = {}, {}, {}
+    M.stop()
+    package.loaded.rlm_ui = nil
+    local ok_ui, fresh_ui = pcall(require, "rlm_ui")
+    if ok_ui and type(fresh_ui) == "table" and type(fresh_ui.start) == "function" then
+        package.loaded.rlm_ui = fresh_ui
+        fresh_ui.start(saved_state)
+    else
+        package.loaded.rlm_ui = M
+        M.start(saved_state)
+        fresh_ui = M
+    end
 
-    if was_open then open_panel() end
-    local message = ("Reloaded %d module(s) safely"):format(#module_list)
-    if not themed then message = message .. ". Previous UI theme kept." end
-    show_global_notification(message)
-    log.info(message)
+    if was_open and previous_module and type(fresh_ui.open_module) == "function" then
+        pcall(fresh_ui.open_module, previous_module)
+    elseif was_open and type(fresh_ui.open_module) == "function" and module_list[1] then
+        pcall(fresh_ui.open_module, module_list[1].id)
+    end
+
+    for _, module in ipairs(module_list) do
+        local callback = type(module.runtime) == "table" and module.runtime.on_host_reload
+        if type(callback) == "function" then
+            local callback_ok, accepted, callback_error = pcall(callback, saved_state)
+            if not callback_ok or accepted == false then
+                log.warn(("%s post-reload callback stopped: %s"):format(
+                    tostring(module.id), tostring(callback_ok and callback_error or accepted)))
+            end
+        end
+    end
+
+    local message = ("Reloaded %d module(s) & UI safely"):format(#module_list)
+    if type(fresh_ui.report_status) == "function" then
+        pcall(fresh_ui.report_status, "ok", message, true)
+    else
+        log.info(message)
+    end
     return module_list
 end
 
@@ -1337,32 +1420,49 @@ function M.reload_modules()
     return reload_mods()
 end
 
+local function enqueue_click(item)
+    menu.queue = menu.queue or {}
+    local last = menu.queue[#menu.queue]
+    if last and last.source_name and last.source_name == item.source_name then return end
+    menu.queue[#menu.queue + 1] = item
+end
+
 local function route_click(name)
-    if name == menu.button_name then menu.pending = "open"
-    elseif name == menu.close_name then menu.pending = "close"
-    elseif name == menu.reload_name then menu.pending = "reload-mods"
+    if not started then return end
+    if name == menu.button_name then enqueue_click({ kind = "open", source_name = name })
+    elseif name == menu.close_name then enqueue_click({ kind = "close", source_name = name })
+    elseif name == menu.reload_name then enqueue_click({ kind = "reload-mods", source_name = name })
     elseif menu.action_names[name] then
-        menu.pending_action = menu.action_names[name]
-        menu.pending = "module-action"
+        enqueue_click({ kind = "module-action", action = menu.action_names[name], source_name = name })
     elseif menu.row_names[name] then
-        menu.pending_row = menu.row_names[name]
-        local entry = menu.pending_row.entry
+        local row = menu.row_names[name]
+        local entry = row.entry
         if entry and entry.icon_widget then entry.spin_frame = 0 end
-        menu.pending = "select-row"
+        enqueue_click({ kind = "select-row", row = row, source_name = name })
     elseif menu.module_names[name] then
-        menu.pending_module = menu.module_names[name]
-        menu.pending = "show-module"
+        enqueue_click({ kind = "show-module", module = menu.module_names[name], source_name = name })
     end
 end
 
 local function hook_clicks()
-    if click_hooked then return end
+    local driver = rawget(_G, "__RLM_UI_CLICK_DRIVER")
+    if type(driver) ~= "table" then
+        driver = {}
+        rawset(_G, "__RLM_UI_CLICK_DRIVER", driver)
+    end
+    driver.on_click = route_click
+    if click_hooked and driver.hook_reg == RegisterHook then return end
     click_hooked = true
+    if driver.hook_reg == RegisterHook then return end
     local ok = pcall(RegisterHook, "/Script/CommonUI.CommonButtonBase:HandleButtonClicked", function(self)
         local ok_name, name = pcall(function() return self:get():GetFullName() end)
-        if ok_name then route_click(name) end
+        if ok_name then
+            local active = rawget(_G, "__RLM_UI_CLICK_DRIVER")
+            if active and type(active.on_click) == "function" then active.on_click(name) end
+        end
     end)
-    if not ok then log.warn("button-click hook unavailable; use F7") end
+    if ok then driver.hook_reg = RegisterHook
+    else log.warn("button-click hook unavailable; use F7") end
 end
 
 local function hook_escape()
@@ -1374,6 +1474,7 @@ local function hook_escape()
     local ok = pcall(RegisterKeyBind, Key.ESCAPE, function()
         -- UE4SS invokes this outside the game-thread UI loop. Only record the
         -- request here; main_tick performs the actual widget/input changes.
+        if not started then return end
         key_state.escape_requested = true
     end)
     if ok then escape_hooked = true
@@ -1390,6 +1491,7 @@ local function hook_enter()
     local registered, result = pcall(RegisterKeyBind, key, function()
         -- The focused Slate field consumes Return before PlayerController
         -- sees it. Only latch a flag here. Dispatch on the game thread.
+        if not started then return end
         if enter_enabled then enter_requested = true end
     end)
     enter_hooked = registered and result ~= false
@@ -1406,7 +1508,15 @@ local function poll_menu_selection()
     menu.pending = "open"
 end
 
-local function menu_tick()
+local function process_pending_menu()
+    if not menu.pending and menu.queue and #menu.queue > 0 then
+        local item = table.remove(menu.queue, 1)
+        menu.pending = item.kind
+        menu.pending_action = item.action
+        menu.pending_row = item.row
+        menu.pending_module = item.module
+    end
+    if not menu.pending then return false end
     if menu.pending == "open" then
         menu.pending = "open-after-close"
         pcall(function() menu.pause:Resume() end)
@@ -1442,7 +1552,7 @@ local function menu_tick()
                 panel.selected_row = nil
                 if valid(panel.name_input) then pcall(function() panel.name_input:SetText(FText("")) end) end
                 activate_module(module.id)
-                return
+                return true
             end
         end
         local previous = panel.selected_row
@@ -1457,17 +1567,21 @@ local function menu_tick()
             end
         end
         local input_value = type(value) == "table" and value.input or value
-        if type(value) == "table" and value.detail and valid(panel.detail) then
-            pcall(function() panel.detail:SetText(FText(tostring(value.detail))) end)
+        if type(value) == "table" and value.detail then
+            set_detail(value.detail)
         end
         if panel.needs_input and valid(panel.name_input) then
             pcall(function() panel.name_input:SetText(FText(tostring(input_value or ""))) end)
             pcall(function() panel.name_input:SetKeyboardFocus() end)
         end
-    else
-        ensure_menu_button()
-        poll_menu_selection()
     end
+    return true
+end
+
+local function menu_tick()
+    if process_pending_menu() then return end
+    ensure_menu_button()
+    poll_menu_selection()
 end
 
 local function engine_key(name)
@@ -1494,9 +1608,7 @@ local function poll_keys()
         end
         if engine.real_time_seconds() >= key_capture.deadline then
             end_key_capture(controller)
-            if valid(panel.detail) then
-                pcall(function() panel.detail:SetText(FText("No key detected; binding unchanged.")) end)
-            end
+            set_detail("No key detected; binding unchanged.")
             return
         end
         for _, key in ipairs(CAPTURE_BASES) do
@@ -1522,12 +1634,10 @@ local function poll_keys()
                         if valid(panel.name_input) then
                             pcall(function() panel.name_input:SetText(FText(prefix)) end)
                         end
-                        if valid(panel.detail) then pcall(function() panel.detail:SetText(FText(message)) end) end
+                        set_detail(message)
                         log.info(message)
                     else
-                        if valid(panel.detail) then
-                            pcall(function() panel.detail:SetText(FText("Action stopped: " .. tostring(message))) end)
-                        end
+                        set_detail("Action stopped: " .. tostring(message))
                         log.warn(module.id .. " key capture stopped: " .. tostring(message))
                     end
                 end
@@ -1598,6 +1708,7 @@ local function poll_keys()
 end
 
 local function main_tick()
+    if not started then return end
     if panel.notification_until > 0 and os.clock() >= panel.notification_until then
         panel.notification_until = 0
         show_global_notification("")
@@ -1611,6 +1722,8 @@ local function main_tick()
 end
 
 local function paint_control_feedback()
+    local back = panel.pinned_rows and panel.pinned_rows[1]
+    if back and back.bound_value then kit.animate_button_hover(back, true) end
     local refresh = panel.pinned_rows and panel.pinned_rows[2]
     if refresh and refresh.bound_value then kit.animate_icon_button(refresh, true) end
     local previous = panel.hovered_module
@@ -1633,7 +1746,12 @@ local function paint_control_feedback()
 end
 
 local function input_and_images_tick()
+    if not started then return end
     pcall(poll_keys)
+    if menu.pending or (menu.queue and #menu.queue > 0) then
+        local click_ok, click_error = pcall(process_pending_menu)
+        if not click_ok then log.warn("UI click failed: " .. tostring(click_error)) end
+    end
     if not panel.open then return end
     pcall(paint_control_feedback)
     if not panel.icon_pending then return end
@@ -1655,6 +1773,7 @@ function M.start(bootstrap_state)
     state.uiPooledHeadings = true
     started = true
     pcall(NotifyOnNewObject, "/Script/Dominion.PauseMenuScreen", function(object)
+        if not started then return end
         pause_seen[#pause_seen + 1] = object
     end)
     -- A UE4SS hot reload keeps the game's existing pause-menu UObject alive.
@@ -1680,9 +1799,13 @@ function M.start(bootstrap_state)
         end)
     end
 
-    local loop_ok = pcall(LoopInGameThreadWithDelay, 250, main_tick)
+    local loop_ok, main_h = pcall(LoopInGameThreadWithDelay, 250, main_tick)
     if not loop_ok then return false, "this UE4SS build has no safe game-thread UI loop" end
-    if not pcall(LoopInGameThreadWithDelay, 33, input_and_images_tick) then
+    main_loop_handle = main_h
+    local fast_ok, fast_h = pcall(LoopInGameThreadWithDelay, 33, input_and_images_tick)
+    if fast_ok then
+        fast_loop_handle = fast_h
+    else
         log.warn("shortcut polling unavailable; use the pause-menu entry")
     end
     local key = tostring(state.config.MenuKey or "none")
@@ -1747,14 +1870,20 @@ function M.report_status(kind, message, background)
     if panel.open then
         if background then
             show_global_notification(message)
-        elseif valid(panel.detail) then
-            pcall(function() panel.detail:SetText(FText(tostring(message))) end)
+        else
+            set_detail(message)
         end
     end
     if kind == "incomplete" then log.warn(message) else log.info(message) end
 end
 
 function M.stop()
+    started = false
+    if type(CancelDelayedAction) == "function" then
+        if main_loop_handle then pcall(CancelDelayedAction, main_loop_handle) end
+        if fast_loop_handle then pcall(CancelDelayedAction, fast_loop_handle) end
+    end
+    main_loop_handle, fast_loop_handle = nil, nil
     enter_enabled, enter_requested = false, false
     row_icons.cancel_scan()
     if hud_input_owner then M.end_hud_input(local_controller()) end
@@ -1769,10 +1898,11 @@ function M.stop()
     if valid(menu.button) then pcall(function() menu.button:RemoveFromParent() end) end
     panel.frame, panel.pc, panel.status, panel.detail = nil, nil, nil, nil
     panel.status_sizer, panel.notification, panel.notification_until = nil, nil, 0
-    panel.rows_box, panel.rows_scroll, panel.action_sizer, panel.compact_box = nil, nil, nil, nil
+    panel.rows_box, panel.rows_scroll, panel.action_scroll, panel.action_row_boxes, panel.action_sizer, panel.compact_box = nil, nil, nil, nil, nil, nil
     panel.pinned_rows = nil
     panel.pagination, panel.hovered_module = nil, nil
     panel.footer, panel.content_width, panel.input_sizer, panel.input_gap = nil, nil, nil, nil
+    panel.inline_actions, panel.footer_home, panel.footer_parent = nil, nil, nil
     panel.preview_tiles, panel.preview_headings, panel.compact_rows = nil, nil, nil
     panel.preview_box, panel.item_preview, panel.preview_icon, panel.ingredient_icons = nil, nil, nil, nil
     panel.active_actions, panel.needs_input = nil, nil
@@ -1782,6 +1912,11 @@ function M.stop()
     key_state.escape_requested = false
     key_capture.active = false
     escape_hooked = false
+    local click_driver = rawget(_G, "__RLM_UI_CLICK_DRIVER")
+    if type(click_driver) == "table" and click_driver.on_click == route_click then
+        click_driver.on_click = nil
+    end
+    menu.queue, menu.pending = {}, nil
     started = false
     return true
 end

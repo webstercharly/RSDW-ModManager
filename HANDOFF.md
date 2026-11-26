@@ -1,5 +1,18 @@
 # Cross-tool handoff
 
+## Public shell navigation and in-process UI reload (26 November 2026)
+
+- Vendored UI Kit `dd98250` and added the compact/destination row treatment,
+  inline detail actions, per-view action labels and deterministic action-dock
+  placement used by the public modules.
+- **Reload Mods** now debounces duplicate requests, replaces `rlm_ui.lua` and
+  the shared presentation modules in process, cancels the old delayed loops,
+  restores the open module and calls an optional idempotent `on_host_reload`.
+  The public shell contains no module-specific service or HUD names.
+- `main.lua`, `rlm_bootstrap.lua` and `rlm_modules.lua` still require a normal
+  restart. Static validation is required below; live public-package validation
+  remains unchecked in `Docs/TEST_PLAN.md`.
+
 ## Graphite UI Kit integration in 0.1.2-dev
 
 - The public shell uses the shared kit for detail cards, hover effects,
