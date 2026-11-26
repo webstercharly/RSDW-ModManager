@@ -5,6 +5,10 @@
 - Vendored UI Kit `dd98250` and added the compact/destination row treatment,
   inline detail actions, per-view action labels and deterministic action-dock
   placement used by the public modules.
+- The shared read-only inventory adapter now exposes stable equipment-slot
+  labels and a character-bound backpack gear picker for Hot Swap. It rechecks
+  the selected item immediately before saving a preset slot and performs no
+  equipment mutation.
 - **Reload Mods** now debounces duplicate requests, replaces `rlm_ui.lua` and
   the shared presentation modules in process, cancels the old delayed loops,
   restores the open module and calls an optional idempotent `on_host_reload`.

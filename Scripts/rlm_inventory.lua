@@ -24,6 +24,10 @@ local LOADOUT_SLOT_NAMES = {
     [11] = "Jewellery 2",
 }
 
+function M.equipment_slot_name(slot)
+    return LOADOUT_SLOT_NAMES[slot] or ("Loadout " .. tostring(slot))
+end
+
 local function item_at(component, slot)
     local item = engine.call(component, "GetItemFromSlot", slot)
     return engine.is_valid(item) and item or nil
@@ -57,10 +61,8 @@ local function item_count(item)
     return math.max(1, count or 1)
 end
 
-local function item_record(item, slot, slot_name)
-    local data = item_data(item)
-    if not data then return nil end
-    local identity = engine.full_name(data)
+local function item_record(item, slot, slot_name, identity)
+    if not identity then identity = engine.full_name(item_data(item)) end
     if identity == "" then return nil end
 
     local record = {
@@ -87,6 +89,40 @@ end
 
 function M.same_item(left, right)
     return same_identity(left, right)
+end
+
+function M.backpack_gear(slot, accepts, expected_character, wanted)
+    local runtime, reason = engine.player_runtime()
+    if not runtime then return nil, reason end
+    local character = engine.full_name(runtime.pawn)
+    if character == "" then return nil, "player character is not ready" end
+    if expected_character and character ~= expected_character then
+        return nil, "character changed. Reopen the backpack picker"
+    end
+    local slots = engine.number_field(runtime.inventory,
+        { "MaxSlotCount", "MaxSlots", "SlotCount" }, INVENTORY_SCAN_FALLBACK)
+    if slots < 1 or slots > 500 then slots = INVENTORY_SCAN_FALLBACK end
+    local records, seen = {}, {}
+    for index = 0, slots - 1 do
+        local item = item_at(runtime.inventory, index)
+        if item then
+            local identity = engine.full_name(item_data(item))
+            if identity ~= "" and not seen[identity] and (not wanted or wanted.identity == identity)
+                and accepts(short_asset_name(identity)) then
+                local record = item_record(item, slot, M.equipment_slot_name(slot), identity)
+                seen[identity] = true
+                if wanted then return record end
+                records[#records + 1] = record
+            end
+        end
+    end
+    if wanted then return nil, "that item is no longer in your backpack. Reopen the picker to refresh it" end
+    table.sort(records, function(left, right)
+        local a, b = (left.label or left.asset):lower(), (right.label or right.asset):lower()
+        if a == b then return left.identity < right.identity end
+        return a < b
+    end)
+    return records, nil, character
 end
 
 function M.probe()
@@ -265,7 +301,7 @@ function M.snapshot()
         local item = item_at(runtime.loadout, slot)
         if item and not seen_objects[item] then
             seen_objects[item] = true
-            local record = item_record(item, slot, LOADOUT_SLOT_NAMES[slot] or ("Loadout " .. slot))
+            local record = item_record(item, slot, M.equipment_slot_name(slot))
             if record then
                 local held = slot == 7 or slot == 8
                 local held_key = held and tostring(record.asset):lower() or nil
