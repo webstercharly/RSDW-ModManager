@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "manager",
+  "boundaryScanPaths": ["Scripts", "Modules", "Data"],
+  "forbiddenPatterns": [
+    { "pattern": "rlm_(cheats|items|shortcut_bindings|automation)", "reason": "private module dependency" },
+    { "pattern": "Modules[/\\\\](Cheats|Items|Bestiary|Loadout|Loot|Automation)", "reason": "private module knowledge" },
+    { "pattern": "RSDW(QuestHelper|BossHelper|Debug)", "reason": "private companion dependency" }
+  ],
+  "validatePng": true
+}

@@ -35,3 +35,4 @@ session, update `HANDOFF.md` with:
 Preserve `%LOCALAPPDATA%/RSDWModManager` user data. Keep this project PC-only.
 Parse every changed Lua file and validate every changed JSON file. Never mark a
 gameplay checkbox complete until the user or logs confirm it inside Dragonwilds.
+Run `Tools/Test-PublicPackage.ps1` before a public commit or handoff.
